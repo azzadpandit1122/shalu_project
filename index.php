@@ -39,12 +39,8 @@
 
         $query = "INSERT INTO `db` (`name`, `email`, `password`) VALUES ('$name', '$email', '$password')";
         $excute=mysqli_query($con,$query);
-
-
-
     }
 
     ?>
-
 </body>
 </html>    
