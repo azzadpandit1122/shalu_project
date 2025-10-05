@@ -1,0 +1,15 @@
+.centered-form {
+    width: 300px; /* Set a specific width for the form */
+    margin: 0 auto; /* Centers the form horizontally */
+    padding: 20px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    text-align: center; /* Centers inline content within the form */
+}
+
+.centered-form label,
+.centered-form input,
+.centered-form button {
+    display: block; /* Makes elements take full width for better layout */
+    margin-bottom: 10px;
+}
