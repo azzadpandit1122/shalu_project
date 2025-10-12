@@ -3,153 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centered Form</title>
+    <title>Update Record by Email</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+        }
+        .centered-form {
+            width: 50%;
+            margin: 20px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 95%;
+            padding: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        input[type="submit"], button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        input[type="submit"]:hover, button:hover {
+            background: #45a049;
+        }
+    </style>
 </head>
 <body>
-    <form class="centered-form" method="POST" >
 
-        <label for="pass">Abouts Us:</label>
-        <input type="text" name="aboutus">
+<!-- Search form -->
+<form method="post" action="" class="centered-form">
+    <h3>Search Record by Email</h3>
+    <input type="email" name="email_1" placeholder="Enter email" required>
+    <input type="submit" name="read" value="Fetch Data">
+</form>
 
-        <label for="name">Name:</label>
-        <input type="text" name="name">
+<?php
+// Step 1: Database Connection
+$con = mysqli_connect('localhost','root','','shalu');
+if (!$con) {
+    die("Connection failed: " . mysqli_connect_error());
+}
 
-        <label for="email"> Email</label>
-        <input type="email" name="email">
-        
-        <label for="pass">Password:</label>
-        <input type="password" name="pass">
+$record = null;
+$showSaveButton = false;
 
-        <label for="local address">local address:</label>
-        <input type="local address" name="local_address">
+// Step 2: Fetch data by email
+if (isset($_POST['read'])) {
+    $email = $_POST['email_1'];
 
-        <label for="home address">home address:</label>
-        <input type="home address" name="home_address">
+    // ✅ Security fix: Use real_escape_string to prevent SQL injection
+    $email = mysqli_real_escape_string($con, $email);
 
-        <label for="10th year">10th year:</label>
-        <input type="10th year" name="10th_year">
-
-        <label for="diploma year">diploma year:</label>
-        <input type="diploma year" name="diploma_yaer">
-
-        <label for="BSC year">BSC year:</label>
-        <input type="BSC year" name="BSC_year">
-
-        <label for="father name">father name:</label>
-        <input type="father name" name="father_name">
-
-        <label for="moher name">mother name:</label>
-        <input type="mother name" name="mother_name">
-    
-        <input type="submit" name="sb"></input>
-    </form>
-
-
-    <form action="" class="centered-form" method="post">
-    <input type="email" name="password" id="">
-    <input type="submit" name="read"></input>
-    </form>
-
-
-    <?php
-    //step 1
-    $con = mysqli_connect('localhost','root','','shalu');
-
-
-    // Check connection
-    if (!$con) {
-        die("Connection failed: " . mysqli_connect_error());
-    }
-
-    // Step 2: Check if form is submitted
-    if (isset($_POST['read'])) {
-    $email = $_POST['password'];
-
-    // Step 3: Query to fetch data by email
     $query = "SELECT * FROM db WHERE email = '$email'";
     $result = mysqli_query($con, $query);
 
-    // Step 4: Check if any record found
-    if (mysqli_num_rows($result) > 0) {
-        echo "<h3>Records Found:</h3>";
-        echo "<table border='1' cellpadding='8' cellspacing='0'>";
-        echo "<tr>";
-        // Fetch column names dynamically
-        $fields = mysqli_fetch_fields($result);
-        foreach ($fields as $field) {
-            echo "<th>{$field->name}</th>";
-        }
-        echo "</tr>";
-
-        // Fetch rows
-        while ($row = mysqli_fetch_assoc($result)) {
-            echo "<tr>";
-            foreach ($row as $value) {
-                echo "<td>$value</td>";
-            }
-            echo "</tr>";
-        }
-
-        echo "</table>";
+    if ($result && mysqli_num_rows($result) > 0) {
+        $record = mysqli_fetch_assoc($result);
+        $showSaveButton = true;
     } else {
-        echo "<p style='color:red;'>No record found for email: $email</p>";
+        echo "<p style='color:red;text-align:center;'>No record found for email: $email</p>";
+    }
+}
+
+// Step 3: Update record
+if (isset($_POST['update'])) {
+    $old_email = $_POST['old_email'];  // original email (hidden)
+    $new_email = $_POST['email'];      // new email entered
+    $name = $_POST['name'];
+    $password = $_POST['password'];
+
+    // ✅ Escape all values
+    $old_email = mysqli_real_escape_string($con, $old_email);
+    $new_email = mysqli_real_escape_string($con, $new_email);
+    $name = mysqli_real_escape_string($con, $name);
+    $password = mysqli_real_escape_string($con, $password);
+
+    // ✅ Update query including email change
+    $updateQuery = "
+        UPDATE db 
+        SET name='$name', password='$password', email='$new_email' 
+        WHERE email='$old_email'
+    ";
+
+    if (mysqli_query($con, $updateQuery)) {
+        echo "<p style='color:green;text-align:center;'>✅ Record updated successfully!<br>Old Email: $old_email → New Email: $new_email</p>";
+    } else {
+        echo "<p style='color:red;text-align:center;'>❌ Error updating record: " . mysqli_error($con) . "</p>";
     }
 }
 
 
+?>
+
+<?php if ($record): ?>
+    <form method="post" action="">
+    <h3>Edit Record</h3>
+    <!-- hidden original email -->
+    <input type="hidden" name="old_email" value="<?php echo htmlspecialchars($record['email']); ?>">
+
+    <label>Email:</label><br>
+    <input type="email" name="email" value="<?php echo htmlspecialchars($record['email']); ?>"><br><br>
+
+    <label>Name:</label><br>
+    <input type="text" name="name" value="<?php echo htmlspecialchars($record['name']); ?>"><br><br>
+
+    <label>Password:</label><br>
+    <input type="text" name="password" value="<?php echo htmlspecialchars($record['password']); ?>"><br><br>
+
+    <input type="submit" name="update" value="Save Changes">
+    </form>
 
 
+    <script>
+        // Save original values to detect changes
+        const originalData = {
+            name: "<?php echo addslashes($record['name']); ?>",
+            email: "<?php echo addslashes($record['email']); ?>",
+            password: "<?php echo addslashes($record['password']); ?>",
+            phone: "<?php echo addslashes($record['phone']); ?>"
+        };
 
+        function confirmUpdate() {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const phone = document.getElementById('phone').value.trim();
 
+            // Check if any field changed
+            if (name !== originalData.name || email !== originalData.email || password !== originalData.password || phone !== originalData.phone) {
+                return confirm("You have made some changes.\nDo you want to save them?");
+            } else {
+                alert("No changes detected. Nothing to save.");
+                return false;
+            }
+        }
+    </script>
+<?php endif; ?>
 
-    // $sql = "SELECT * FROM db";
-    // $result = $con->query($sql);
-
-    // print_r("Read - R<br>");
-    // if ($result->num_rows > 0) {
-    //     while($row = $result->fetch_assoc()) {
-    //          print_r( "Name : " . $row["name"] .
-    //                "Email :".$row["email"] .
-    //                "Password :" .$row["password"] .
-    //                "About use :" .$row["about_use"].
-    //                "Father :" .$row["Father"].
-    //                "Mather :" .$row["Mather"].
-    //                "Local address :" .$row["local_address"].
-    //                "Home address :" .$row["home_address"].
-    //                "10th year  :" .$row["10th_year"].
-    //                "diploma year :" .$row["diploma_year"].
-    //                "Bsc year :" .$row["BSC_year"].
-    //                 "<br>" );
-    //     }
-    // } else {
-    //     echo "0 results";
-    // }
-
-
-    if(isset($_POST['sb'])){
-       
-        $aboutus = $_POST['aboutus'];
-        $name = $_POST['name'];
-        $email = $_POST['email'];
-        $password = $_POST['pass'];
-        $local_address = $_POST['local_address'];
-        $home_address = $_POST['home_address'];
-        $_10th_year = $_POST['10th_year'];
-        $diploma_yaer = $_POST['diploma_yaer'];
-        $BSC_year = $_POST['BSC_year'];
-        $father = $_POST['father_name' ];
-        $mother = $_POST['mother_name'];
-
-        $query = "INSERT INTO `db` (`name`, `email`, `password`, `about_use`, `Father`, `Mather`, `local_address`, `home_address`, `10th_year`, `diploma_year`, `BSC_year`) 
-        VALUES 
-        ('$name', '$email', '$password', '$aboutus', '$father', '$mother', '$local_address', '$home_address', '$_10th_year', '$diploma_yaer', '$BSC_year')";
-
-
-        $excute=mysqli_query($con,$query);
-        
-    }
-
-    ?>
 </body>
 </html>
