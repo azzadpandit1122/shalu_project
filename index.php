@@ -47,17 +47,14 @@
 
 
     <form action="" class="centered-form" method="post">
-    <input type="email" name="email_1" id="">
+    <input type="email" name="password" id="">
     <input type="submit" name="read"></input>
     </form>
 
 
     <?php
+    //step 1
     $con = mysqli_connect('localhost','root','','shalu');
-
-   
-
-
 
 
     // Check connection
@@ -65,28 +62,69 @@
         die("Connection failed: " . mysqli_connect_error());
     }
 
-    $sql = "SELECT * FROM db";
-    $result = $con->query($sql);
+    // Step 2: Check if form is submitted
+    if (isset($_POST['read'])) {
+    $email = $_POST['password'];
 
-    print_r("Read - R<br>");
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-             print_r( "Name : " . $row["name"] .
-                   "Email :".$row["email"] .
-                   "Password :" .$row["password"] .
-                   "About use :" .$row["about_use"].
-                   "Father :" .$row["Father"].
-                   "Mather :" .$row["Mather"].
-                   "Local address :" .$row["local_address"].
-                   "Home address :" .$row["home_address"].
-                   "10th year  :" .$row["10th_year"].
-                   "diploma year :" .$row["diploma_year"].
-                   "Bsc year :" .$row["BSC_year"].
-                    "<br>" );
+    // Step 3: Query to fetch data by email
+    $query = "SELECT * FROM db WHERE email = '$email'";
+    $result = mysqli_query($con, $query);
+
+    // Step 4: Check if any record found
+    if (mysqli_num_rows($result) > 0) {
+        echo "<h3>Records Found:</h3>";
+        echo "<table border='1' cellpadding='8' cellspacing='0'>";
+        echo "<tr>";
+        // Fetch column names dynamically
+        $fields = mysqli_fetch_fields($result);
+        foreach ($fields as $field) {
+            echo "<th>{$field->name}</th>";
         }
+        echo "</tr>";
+
+        // Fetch rows
+        while ($row = mysqli_fetch_assoc($result)) {
+            echo "<tr>";
+            foreach ($row as $value) {
+                echo "<td>$value</td>";
+            }
+            echo "</tr>";
+        }
+
+        echo "</table>";
     } else {
-        echo "0 results";
+        echo "<p style='color:red;'>No record found for email: $email</p>";
     }
+}
+
+
+
+
+
+
+
+    // $sql = "SELECT * FROM db";
+    // $result = $con->query($sql);
+
+    // print_r("Read - R<br>");
+    // if ($result->num_rows > 0) {
+    //     while($row = $result->fetch_assoc()) {
+    //          print_r( "Name : " . $row["name"] .
+    //                "Email :".$row["email"] .
+    //                "Password :" .$row["password"] .
+    //                "About use :" .$row["about_use"].
+    //                "Father :" .$row["Father"].
+    //                "Mather :" .$row["Mather"].
+    //                "Local address :" .$row["local_address"].
+    //                "Home address :" .$row["home_address"].
+    //                "10th year  :" .$row["10th_year"].
+    //                "diploma year :" .$row["diploma_year"].
+    //                "Bsc year :" .$row["BSC_year"].
+    //                 "<br>" );
+    //     }
+    // } else {
+    //     echo "0 results";
+    // }
 
 
     if(isset($_POST['sb'])){
