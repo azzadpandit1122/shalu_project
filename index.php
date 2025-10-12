@@ -1,154 +1,235 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Record by Email</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        body {
-            font-family: Arial;
-            background: #f5f5f5;
-        }
-        .centered-form {
-            width: 50%;
-            margin: 20px auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 8px rgba(0,0,0,0.1);
-        }
-        input[type="text"], input[type="email"], input[type="password"] {
-            width: 95%;
-            padding: 8px;
-            margin-bottom: 12px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        input[type="submit"], button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        input[type="submit"]:hover, button:hover {
-            background: #45a049;
-        }
-    </style>
-</head>
-<body>
-
-<!-- Search form -->
-<form method="post" action="" class="centered-form">
-    <h3>Search Record by Email</h3>
-    <input type="email" name="email_1" placeholder="Enter email" required>
-    <input type="submit" name="read" value="Fetch Data">
-</form>
-
 <?php
-// Step 1: Database Connection
-$con = mysqli_connect('localhost','root','','shalu');
-if (!$con) {
-    die("Connection failed: " . mysqli_connect_error());
+include 'config.php';
+
+// File upload function
+function uploadFile($fileInput, $existingFile = null) {
+    if (!empty($_FILES[$fileInput]['name'])) {
+        $targetDir = "uploads/";
+        if (!file_exists($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
+        $fileName = time() . "_" . basename($_FILES[$fileInput]["name"]);
+        $targetFilePath = $targetDir . $fileName;
+
+        // Move the uploaded file
+        if (move_uploaded_file($_FILES[$fileInput]["tmp_name"], $targetFilePath)) {
+            // Remove old file if exists
+            if ($existingFile && file_exists($existingFile)) {
+                unlink($existingFile);
+            }
+            return $targetFilePath;
+        }
+    }
+    return $existingFile;
 }
 
-$record = null;
-$showSaveButton = false;
+// ADD or UPDATE Book
+if (isset($_POST['add_book'])) {
+    $book_name = mysqli_real_escape_string($con, $_POST['book_name']);
+    $book_year = mysqli_real_escape_string($con, $_POST['book_year']);
+    $book_auther = mysqli_real_escape_string($con, $_POST['book_auther']);
+    $book_price = mysqli_real_escape_string($con, $_POST['book_price']);
+    $type = mysqli_real_escape_string($con, $_POST['type']);
+    $from_date = mysqli_real_escape_string($con, $_POST['from_date']);
+    $to_date = mysqli_real_escape_string($con, $_POST['to_date']);
+    $is_for_sales = isset($_POST['is_for_sales']) ? 1 : 0;
 
-// Step 2: Fetch data by email
-if (isset($_POST['read'])) {
-    $email = $_POST['email_1'];
+    if (!empty($_POST['book_id'])) {
+        // Update existing book
+        $book_id = intval($_POST['book_id']);
+        $res = mysqli_query($con, "SELECT file FROM books WHERE id='$book_id'");
+        $row = mysqli_fetch_assoc($res);
+        $oldFile = $row['file'] ?? null;
 
-    // ✅ Security fix: Use real_escape_string to prevent SQL injection
-    $email = mysqli_real_escape_string($con, $email);
+        $filePath = uploadFile('file', $oldFile);
 
-    $query = "SELECT * FROM db WHERE email = '$email'";
-    $result = mysqli_query($con, $query);
-
-    if ($result && mysqli_num_rows($result) > 0) {
-        $record = mysqli_fetch_assoc($result);
-        $showSaveButton = true;
+        $updateQuery = "UPDATE books SET 
+            book_name='$book_name',
+            book_year='$book_year',
+            book_auther='$book_auther',
+            book_price='$book_price',
+            type='$type',
+            from_date='$from_date',
+            to_date='$to_date',
+            is_for_sales='$is_for_sales',
+            file='$filePath'
+            WHERE id='$book_id'";
+        mysqli_query($con, $updateQuery);
+        header("Location: ".$_SERVER['PHP_SELF']."?updated=1");
+        exit();
     } else {
-        echo "<p style='color:red;text-align:center;'>No record found for email: $email</p>";
+        // Insert new book
+        $filePath = uploadFile('file');
+
+        $insertQuery = "INSERT INTO books (book_name, book_year, book_auther, book_price, type, from_date, to_date, is_for_sales, file)
+                        VALUES ('$book_name', '$book_year', '$book_auther', '$book_price', '$type', '$from_date', '$to_date', '$is_for_sales', '$filePath')";
+        mysqli_query($con, $insertQuery);
+        header("Location: ".$_SERVER['PHP_SELF']."?added=1");
+        exit();
     }
 }
 
-// Step 3: Update record
-if (isset($_POST['update'])) {
-    $old_email = $_POST['old_email'];  // original email (hidden)
-    $new_email = $_POST['email'];      // new email entered
-    $name = $_POST['name'];
-    $password = $_POST['password'];
-
-    // ✅ Escape all values
-    $old_email = mysqli_real_escape_string($con, $old_email);
-    $new_email = mysqli_real_escape_string($con, $new_email);
-    $name = mysqli_real_escape_string($con, $name);
-    $password = mysqli_real_escape_string($con, $password);
-
-    // ✅ Update query including email change
-    $updateQuery = "
-        UPDATE db 
-        SET name='$name', password='$password', email='$new_email' 
-        WHERE email='$old_email'
-    ";
-
-    if (mysqli_query($con, $updateQuery)) {
-        echo "<p style='color:green;text-align:center;'>✅ Record updated successfully!<br>Old Email: $old_email → New Email: $new_email</p>";
-    } else {
-        echo "<p style='color:red;text-align:center;'>❌ Error updating record: " . mysqli_error($con) . "</p>";
+// DELETE Book
+if (isset($_POST['delete_book']) && !empty($_POST['book_id'])) {
+    $book_id = intval($_POST['book_id']);
+    $res = mysqli_query($con, "SELECT file FROM books WHERE id='$book_id'");
+    $row = mysqli_fetch_assoc($res);
+    if ($row && file_exists($row['file'])) {
+        unlink($row['file']);
     }
+    mysqli_query($con, "DELETE FROM books WHERE id='$book_id'");
+    header("Location: ".$_SERVER['PHP_SELF']);
+    exit();
 }
 
+// EDIT Book Fetch
+$edit_book = null;
+if (isset($_GET['edit_id'])) {
+    $edit_id = intval($_GET['edit_id']);
+    $res = mysqli_query($con, "SELECT * FROM books WHERE id='$edit_id'");
+    $edit_book = mysqli_fetch_assoc($res);
+}
+
+// SEARCH Book
+$search = isset($_GET['search']) ? mysqli_real_escape_string($con, $_GET['search']) : '';
+$books_query = "SELECT * FROM books";
+if ($search !== '') {
+    $books_query .= " WHERE book_name LIKE '%$search%'";
+}
+$books_query .= " ORDER BY id DESC";
+$books = mysqli_query($con, $books_query);
 
 ?>
 
-<?php if ($record): ?>
-    <form method="post" action="">
-    <h3>Edit Record</h3>
-    <!-- hidden original email -->
-    <input type="hidden" name="old_email" value="<?php echo htmlspecialchars($record['email']); ?>">
 
-    <label>Email:</label><br>
-    <input type="email" name="email" value="<?php echo htmlspecialchars($record['email']); ?>"><br><br>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book Management</title>
+</head>
+<body style="font-family:Arial, sans-serif;">
 
-    <label>Name:</label><br>
-    <input type="text" name="name" value="<?php echo htmlspecialchars($record['name']); ?>"><br><br>
-
-    <label>Password:</label><br>
-    <input type="text" name="password" value="<?php echo htmlspecialchars($record['password']); ?>"><br><br>
-
-    <input type="submit" name="update" value="Save Changes">
-    </form>
-
-
-    <script>
-        // Save original values to detect changes
-        const originalData = {
-            name: "<?php echo addslashes($record['name']); ?>",
-            email: "<?php echo addslashes($record['email']); ?>",
-            password: "<?php echo addslashes($record['password']); ?>",
-            phone: "<?php echo addslashes($record['phone']); ?>"
-        };
-
-        function confirmUpdate() {
-            const name = document.getElementById('name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-
-            // Check if any field changed
-            if (name !== originalData.name || email !== originalData.email || password !== originalData.password || phone !== originalData.phone) {
-                return confirm("You have made some changes.\nDo you want to save them?");
-            } else {
-                alert("No changes detected. Nothing to save.");
-                return false;
-            }
-        }
-    </script>
+<!-- --- Messages --- -->
+<?php if(!empty($messages)): ?>
+    <?php foreach($messages as $msg): ?>
+        <p style="color:green; text-align:center;"><?php echo $msg; ?></p>
+    <?php endforeach; ?>
 <?php endif; ?>
 
+<div style="display:flex; max-width:1000px; margin:auto; gap:20px;">
+
+    <!-- === Left Column: Book List + Search === -->
+    <div style="flex:1; border:1px solid #ccc; padding:20px; border-radius:10px; max-height:600px; overflow-y:auto;">
+        <h3 style="text-align:center;">📚 All Books</h3>
+
+        <!-- Search Form -->
+        <form method="get" action="" style="margin-bottom:10px;">
+            <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" 
+                   placeholder="Search by book name..." 
+                   style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc;">
+        </form>
+
+        <!-- Book List -->
+        <ul style="list-style:none; padding:0;">
+            <?php if(mysqli_num_rows($books) > 0): ?>
+                <?php while($book = mysqli_fetch_assoc($books)): ?>
+                    <!-- <li style="border-bottom:1px solid #eee; padding:10px 0;">
+                        <a href="?edit_id=<?php echo $book['id']; ?>" style="text-decoration:none; color:black; display:block;">
+                    
+                
+                            <strong><?php echo htmlspecialchars("http://localhost/shalu/".$book['file']); ?><br>
+                            <strong><?php echo htmlspecialchars($book['book_name']); ?></strong><br>
+                            Author: <?php echo htmlspecialchars($book['book_auther']); ?><br>
+                            Price: ₹<?php echo htmlspecialchars($book['book_price']); ?>
+                        </a>
+                    </li> -->
+                    <li style="border-bottom:1px solid #eee; padding:10px 0; display:flex; align-items:center;">
+                        <a href="?edit_id=<?php echo $book['id']; ?>" style="text-decoration:none; color:black; display:flex; align-items:center; width:100%;">
+                            <?php if (!empty($book['file'])): ?>
+                                <img src="http://localhost/shalu/<?php echo htmlspecialchars($book['file']); ?>" 
+                                    alt="Book Image" 
+                                    style="width:60px; height:60px; object-fit:cover; border-radius:5px; margin-right:10px;">
+                            <?php else: ?>
+                                <img src="https://via.placeholder.com/60x60?text=No+Image" 
+                                    alt="No Image" 
+                                    style="width:60px; height:60px; object-fit:cover; border-radius:5px; margin-right:10px;">
+                            <?php endif; ?>
+
+                            <div>
+                                <strong><?php echo htmlspecialchars($book['book_name']); ?></strong><br>
+                                Author: <?php echo htmlspecialchars($book['book_auther']); ?><br>
+                                Price: ₹<?php echo htmlspecialchars($book['book_price']); ?>
+                            </div>
+                        </a>
+                    </li>
+
+                <?php endwhile; ?>
+            <?php else: ?>
+                <li style="padding:10px; color:gray;">No books found.</li>
+            <?php endif; ?>
+        </ul>
+    </div>
+
+    <!-- === Right Column: Add/Edit Book Form === -->
+    <div style="flex:1;">
+
+    <form method="post" action="" enctype="multipart/form-data" 
+      style="padding:20px;border:1px solid #ccc;border-radius:10px;">
+    <h2 style="text-align:center;"><?php echo $edit_book ? "✏️ Edit Book" : "📚 Add New Book"; ?></h2>
+    <input type="hidden" name="book_id" value="<?php echo $edit_book['id'] ?? ''; ?>">
+
+    <label>Book Name:</label><br>
+    <input type="text" name="book_name" value="<?php echo $edit_book['book_name'] ?? ''; ?>" required style="width:100%;margin-bottom:10px;"><br>
+
+    <label>Book Year:</label><br>
+    <input type="date" name="book_year" value="<?php echo $edit_book['book_year'] ?? ''; ?>" required style="width:100%;margin-bottom:10px;"><br>
+
+    <label>Author Name:</label><br>
+    <input type="text" name="book_auther" value="<?php echo $edit_book['book_auther'] ?? ''; ?>" required style="width:100%;margin-bottom:10px;"><br>
+
+    <label>Book Price (₹):</label><br>
+    <input type="number" step="0.01" name="book_price" value="<?php echo $edit_book['book_price'] ?? ''; ?>" required style="width:100%;margin-bottom:10px;"><br>
+
+    <label>Type:</label><br>
+    <input type="text" name="type" value="<?php echo $edit_book['type'] ?? ''; ?>" placeholder="e.g., Fiction, Education" style="width:100%;margin-bottom:10px;"><br>
+
+    <label>From Date:</label><br>
+    <input type="date" name="from_date" value="<?php echo $edit_book['from_date'] ?? ''; ?>" style="width:100%;margin-bottom:10px;"><br>
+
+    <label>To Date:</label><br>
+    <input type="date" name="to_date" value="<?php echo $edit_book['to_date'] ?? ''; ?>" style="width:100%;margin-bottom:10px;"><br>
+
+    <label>Available for Sale:</label>
+    <input type="checkbox" name="is_for_sales" value="1" <?php echo (isset($edit_book['is_for_sales']) && $edit_book['is_for_sales']==1) ? 'checked' : ''; ?>><br><br>
+
+    <!-- Image Upload -->
+    <label>Image:</label><br>
+    <input type="file" name="file" style="width:100%; margin-bottom:10px;"><br>
+    <?php if (!empty($edit_book['file'])): ?>
+        <div style="margin-bottom:10px;">
+            <img src="http://localhost/shalu/<?php echo $edit_book['file']; ?>" alt="Book Image" style="max-width:150px; border:1px solid #ccc; border-radius:5px;">
+        </div>
+    <?php endif; ?>
+
+    <div style="display:flex; gap:4%;">
+        <input type="submit" name="add_book" value="Save Book" 
+               style="background-color:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
+        <?php if ($edit_book): ?>
+            <button type="button" onclick="window.location.href='<?= $_SERVER['PHP_SELF'] ?>'" 
+                    style="background-color:#dc3545;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
+                Cancel
+            </button>
+            <button type="submit" name="delete_book" onclick="return confirm('Are you sure you want to delete this book?');"
+                    style="background-color:#ff4d4f;color:white;padding:10px 20px;border:none;border-radius:5px; cursor:pointer; flex:1;">
+                Delete
+            </button>
+        <?php endif; ?>
+    </div>
+</form>
+
+</div>
+
+</div>
 </body>
 </html>
