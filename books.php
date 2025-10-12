@@ -1,7 +1,7 @@
 <?php
-include 'config.php'; // handling database conntion with phpmyadmin
+include 'config.php'; // DB connection
 
-// Step 1: Handle Form Submission for Add/Update
+// Handle Add/Update Book
 if (isset($_POST['add_book'])) {
     $book_name = mysqli_real_escape_string($con, $_POST['book_name']);
     $book_year = mysqli_real_escape_string($con, $_POST['book_year']);
@@ -12,7 +12,6 @@ if (isset($_POST['add_book'])) {
     $to_date = mysqli_real_escape_string($con, $_POST['to_date']);
     $is_for_sales = isset($_POST['is_for_sales']) ? 1 : 0;
 
-    // Update if book_id is set, else insert
     if (!empty($_POST['book_id'])) {
         $book_id = intval($_POST['book_id']);
         $updateQuery = "UPDATE books SET 
@@ -26,25 +25,36 @@ if (isset($_POST['add_book'])) {
             is_for_sales='$is_for_sales'
             WHERE id='$book_id'";
         if (mysqli_query($con, $updateQuery)) {
-            header("Location: " . $_SERVER['PHP_SELF'] . "?updated=1");
+            header("Location: ".$_SERVER['PHP_SELF']."?updated=1");
             exit();
         } else {
-            echo "<p style='color:red;text-align:center;'>❌ Error updating book: " . mysqli_error($con) . "</p>";
+            echo "<p style='color:red;text-align:center;'>Error updating book: ".mysqli_error($con)."</p>";
         }
     } else {
-        // Insert new book
         $insertQuery = "INSERT INTO books (book_name, book_year, book_auther, book_price, type, from_date, to_date, is_for_sales)
                         VALUES ('$book_name', '$book_year', '$book_auther', '$book_price', '$type', '$from_date', '$to_date', '$is_for_sales')";
         if (mysqli_query($con, $insertQuery)) {
-            header("Location: " . $_SERVER['PHP_SELF'] . "?added=1");
+            header("Location: ".$_SERVER['PHP_SELF']."?added=1");
             exit();
         } else {
-            echo "<p style='color:red;text-align:center;'>❌ Error adding book: " . mysqli_error($con) . "</p>";
+            echo "<p style='color:red;text-align:center;'>Error adding book: ".mysqli_error($con)."</p>";
         }
     }
 }
 
-// Step 2: If edit_id is set, fetch book
+// Handle Delete
+if (isset($_POST['delete_book']) && !empty($_POST['book_id'])) {
+    $book_id = intval($_POST['book_id']);
+    $deleteQuery = "DELETE FROM books WHERE id='$book_id'";
+    if (mysqli_query($con, $deleteQuery)) {
+        header("Location: ".$_SERVER['PHP_SELF']);
+        exit();
+    } else {
+        echo "<p style='color:red;text-align:center;'>Error deleting book: ".mysqli_error($con)."</p>";
+    }
+}
+
+// Fetch Book to Edit
 $edit_book = null;
 if (isset($_GET['edit_id'])) {
     $edit_id = intval($_GET['edit_id']);
@@ -52,33 +62,50 @@ if (isset($_GET['edit_id'])) {
     $edit_book = mysqli_fetch_assoc($res);
 }
 
-// Step 3: Fetch all books
-$books = mysqli_query($con, "SELECT * FROM books ORDER BY id DESC");
+// Handle Search
+$search = isset($_GET['search']) ? mysqli_real_escape_string($con, $_GET['search']) : '';
+$books_query = "SELECT * FROM books";
+if($search !== '') {
+    $books_query .= " WHERE book_name LIKE '%$search%'";
+}
+$books_query .= " ORDER BY id DESC";
+$books = mysqli_query($con, $books_query);
 
-// Optional: messages
+// Messages
 if (isset($_GET['added'])) echo "<p style='color:green;text-align:center;'>✅ Book added successfully!</p>";
 if (isset($_GET['updated'])) echo "<p style='color:green;text-align:center;'>✅ Book updated successfully!</p>";
 ?>
 
 <div style="display:flex; max-width:1000px; margin:auto; gap:20px;">
 
-    <!-- Left Column: List of Books -->
+    <!-- Left Column: List + Search -->
     <div style="flex:1; border:1px solid #ccc; padding:20px; border-radius:10px; max-height:600px; overflow-y:auto;">
-        <h3 style="text-align:center;">📚 All Books (Click to Edit)</h3>
+        <h3 style="text-align:center;">📚 All Books</h3>
+
+        <!-- Search Form -->
+        <form method="get" action="" style="margin-bottom:10px;">
+            <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search by book name..." 
+                   style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc;">
+        </form>
+
         <ul style="list-style:none; padding:0;">
-            <?php while($book = mysqli_fetch_assoc($books)): ?>
-                <li style="border-bottom:1px solid #eee; padding:10px 0;">
-                    <a href="?edit_id=<?php echo $book['id']; ?>" style="text-decoration:none; color:black; display:block;">
-                        <strong><?php echo htmlspecialchars($book['book_name']); ?></strong><br>
-                        Author: <?php echo htmlspecialchars($book['book_auther']); ?><br>
-                        Price: ₹<?php echo htmlspecialchars($book['book_price']); ?>
-                    </a>
-                </li>
-            <?php endwhile; ?>
+            <?php if(mysqli_num_rows($books) > 0): ?>
+                <?php while($book = mysqli_fetch_assoc($books)): ?>
+                    <li style="border-bottom:1px solid #eee; padding:10px 0;">
+                        <a href="?edit_id=<?php echo $book['id']; ?>" style="text-decoration:none; color:black; display:block;">
+                            <strong><?php echo htmlspecialchars($book['book_name']); ?></strong><br>
+                            Author: <?php echo htmlspecialchars($book['book_auther']); ?><br>
+                            Price: ₹<?php echo htmlspecialchars($book['book_price']); ?>
+                        </a>
+                    </li>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <li style="padding:10px; color:gray;">No books found.</li>
+            <?php endif; ?>
         </ul>
     </div>
 
-    <!-- Right Column: Add/Edit Book Form -->
+    <!-- Right Column: Add/Edit Form -->
     <div style="flex:1;">
         <form method="post" action="" style="padding:20px;border:1px solid #ccc;border-radius:10px;" 
             onsubmit="return confirm('Do you want to save the changes?');">
@@ -112,20 +139,19 @@ if (isset($_GET['updated'])) echo "<p style='color:green;text-align:center;'>✅
             </label><br><br>
 
             <div style="display:flex; gap:4%;">
-            <!-- Save Button -->
-            <input type="submit" name="add_book" value="Save Book" 
-                style="background-color:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
-
-            <?php if ($edit_book): ?>
-                <!-- Cancel Button -->
-                <button type="button" onclick="window.location.href='<?= $_SERVER['PHP_SELF'] ?>'" 
-                        style="background-color:#dc3545;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
-                    Cancel
-                </button>
+                <input type="submit" name="add_book" value="Save Book" 
+                       style="background-color:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
+                <?php if ($edit_book): ?>
+                    <button type="button" onclick="window.location.href='<?= $_SERVER['PHP_SELF'] ?>'" 
+                            style="background-color:#dc3545;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer; flex:1;">
+                        Cancel
+                    </button>
+                    <button type="submit" name="delete_book" onclick="return confirm('Are you sure you want to delete this book?');"
+                            style="background-color:#ff4d4f;color:white;padding:10px 20px;border:none;border-radius:5px; cursor:pointer; flex:1;">
+                        Delete
+                    </button>
                 <?php endif; ?>
             </div>
-
         </form>
     </div>
-
 </div>
