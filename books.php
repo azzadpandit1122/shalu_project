@@ -208,7 +208,7 @@ $books = mysqli_query($con, $books_query);
     <input type="file" name="file" style="width:100%; margin-bottom:10px;"><br>
     <?php if (!empty($edit_book['file'])): ?>
         <div style="margin-bottom:10px;">
-            <img src="<?php echo $edit_book['file']; ?>" alt="Book Image" style="max-width:150px; border:1px solid #ccc; border-radius:5px;">
+            <img src="http://localhost/shalu/<?php echo $edit_book['file']; ?>" alt="Book Image" style="max-width:150px; border:1px solid #ccc; border-radius:5px;">
         </div>
     <?php endif; ?>
 
